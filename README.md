@@ -1,2 +1,3 @@
-# cleo_website
-Website para meu amigo Cleo
+# Website
+Website para meu amigo Cleo.
+Desenvolvido em FastHTML.
