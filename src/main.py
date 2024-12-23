@@ -1,19 +1,33 @@
-from fasthtml.common import *
-from database.connection import  init_db
+from fasthtml import common as fh
+from database.connection import init_db
 
-app, rt = fast_app(before=Beforeware(init_db))
+app, rt = fh.fast_app(before=fh.Beforeware(init_db), live=True)
 
-@rt("/")
-def get():
-    return Titled("Website do Cleo",
-        Div("Hello, World!", id="greeting"),
-        Button("Change Greeting", 
-               hx_post="/change-greeting", 
-               hx_target="#greeting")
+page_title = "Cleanto"
+
+def render_content(page_title:str, content):
+    return fh.Titled(page_title, 
+        fh.Div(content, id="content", cls="bg-gray-200",)
     )
 
-@rt("/change-greeting")
-def post():
-    return Div("Hello, FastHTML!", id="greeting")
+@rt("/")
+def home():
+    page_content = fh.Div(
+        fh.Div(
+            fh.H2("Bem-vindo ao meu Website!", cls="text-xl font-bold text-blue-800"),
+            fh.P("Este é um exemplo de aplicação web utilizando o FastHTML.", cls="text-sm text-gray-600 mt-1"),
+            fh.P("Acesse o menu para navegar pelas páginas.", cls="row-start-2 text-sm text-gray-600 mt-1"),
+            cls="bg-gray-100 p-6"
+        ),
+        fh.Div(
+            fh.Button(
+                "action_text",
+                cls="px-4 py-2 bg-green-400 text-white rounded hover:bg-blue-500 transition-colors"
+            ),
+            cls="bg-gray-100 p-6"
+        )
+    )
+    return render_content(page_title, page_content)
 
-serve(reload=True)
+
+fh.serve()
