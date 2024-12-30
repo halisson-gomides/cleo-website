@@ -1,5 +1,11 @@
 from fasthtml import common as fh
-from database.connection import init_db
+from database.connection import init_db, get_session
+from dataclasses import dataclass
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+import os
+
 
 page_title="CAT Serviços de Energia Solar"
 
@@ -12,8 +18,107 @@ app, rt = fh.fast_app(
     hdrs=(
         # Add Tailwind CSS
         fh.Script(src="https://cdn.tailwindcss.com"),
+        fh.Link(rel="icon", type="assets/x-icon", href="img/favicon.png"),
     ),        
     live=True)
+
+@dataclass
+class Message:
+    name: str
+    phone: str
+    email: str
+    text: str
+
+
+def validate_form(message: Message):
+    import re
+    pattern = r"^\(\d{2}\) 9\d{4}-\d{4}$"
+    errors = []
+    if len(message.name) < 3:
+        errors.append("O nome deve conter ao menos 3 caracteres")
+    if not re.match(pattern, message.phone):     
+        errors.append("Número de telefone inválido")
+    if '@' not in message.email:
+        errors.append("Endereço de e-mail inválido")
+    if len(message.text) < 10:
+        errors.append("Escreva uma mensagem com ao menos 10 caracteres")
+    return errors
+
+
+async def add_message(message: Message):
+    from database.models import Cliente  
+    from sqlalchemy.exc import SQLAlchemyError
+
+    # Usar async with para gerenciar o contexto da sessão
+    async with get_session() as db_session:    
+        try:        
+            # Adicionar objeto
+            new_message = Cliente(
+                name=message.name, 
+                phone=message.phone, 
+                email=message.email, 
+                message=message.text, 
+                gender_id=1
+            )
+            db_session.add(new_message)
+            await db_session.commit()
+            return True
+        except SQLAlchemyError as e:
+            await db_session.rollback()
+            print(f"Error: {e}")
+            return False
+
+
+def send_email(message: Message):
+    # Configuração do servidor de e-mail
+    smtp_server = os.getenv("MAIL_SERVER")
+    smtp_port = os.getenv("MAIL_PORT")    
+    smtp_user = os.getenv("MAIL_USERNAME")
+    smtp_pass = os.getenv("MAIL_PASSWORD")
+    sender_email = os.getenv("MAIL_FROM")
+    receiver_email = os.getenv("MAIL_TO")
+
+    mail_message = MIMEMultipart("alternative")
+    mail_message["Subject"] = "Nova mensagem - CAT Serviços de Energia Solar"
+    mail_message["From"] = sender_email
+    mail_message["To"] = receiver_email
+
+    html_template = f"""\
+    <html>
+    <body>
+        <div style="font-family: Arial, sans-serif; padding: 2rem; border-radius: 0.375rem; background-color: #374151; max-width: 32rem; margin: 0 auto;">
+            <h2 style="color: #e4e8f0; text-align:center; font-weight:700;">Nova mensagem</h2>
+            <p style="color: #e4e8f0;"><b>Nome</b>:</p>
+          	<div style="font-family: Arial, sans-serif; color: #646b79; padding: 1rem; border-radius: 0.375rem; background-color: #e4e8f0; max-width: 32rem; margin: 0 auto">
+              {message.name}
+          </div>
+            <p style="color: #e4e8f0;"><b>Telefone</b>:</p>
+          <div style="font-family: Arial, sans-serif; color: #646b79; padding: 1rem; border-radius: 0.375rem; background-color: #e4e8f0; max-width: 32rem; margin: 0 auto">
+              {message.phone}
+          </div>
+            <p style="color: #e4e8f0;"><b>E-mail</b>:</p>
+          <div style="font-family: Arial, sans-serif; color: #646b79; padding: 1rem; border-radius: 0.375rem; background-color: #e4e8f0; max-width: 32rem; margin: 0 auto">
+              {message.email}
+          </div>
+            <p style="color: #e4e8f0;"><b>Mensagem</b>:</p>
+          <div style="font-family: Arial, sans-serif; color: #646b79; padding: 2rem; border-radius: 0.375rem; background-color: #e4e8f0; max-width: 32rem; margin: 0 auto">
+              {message.text}
+          </div>
+        </div>
+    </body>
+    </html>
+    """
+    part = MIMEText(html_template, "html")
+    mail_message.attach(part)
+
+    with smtplib.SMTP(smtp_server, smtp_port) as server:
+        server.set_debuglevel(1)
+        server.esmtp_features['auth'] = 'LOGIN DIGEST-MD5 PLAIN'
+        server.login(smtp_user, smtp_pass)
+        server.sendmail(
+            sender_email, receiver_email, mail_message.as_string()
+        )
+    return True
 
 
 @rt("/")
@@ -126,25 +231,31 @@ def home():
                     fh.Form(
                         fh.Div(
                             fh.Label('Nome', cls='block text-gray-50 mb-2'),
-                            fh.Input(type='text', cls='w-full px-4 py-3 rounded-lg border border-gray-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500')
+                            fh.Input(type='text', name="name", maxlength="120", required=True, cls='w-full px-4 py-3 rounded-lg border border-gray-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500', placeholder='Nome completo')
                         ),
                         fh.Div(
                             fh.Label('Telefone', cls='block text-gray-50 mb-2'),
-                            fh.Input(type='tel', pattern="[0-9]{3}-[0-9]{2}-[0-9]{3}", cls='w-full px-4 py-3 rounded-lg border border-gray-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500', placeholder='(XX) XXXX-XXXX')
+                            fh.Input(type='tel', name="phone", maxlength="15", required=True, cls='w-full px-4 py-3 rounded-lg border border-gray-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500', placeholder='(XX) XXXXX-XXXX')
                         ),
                         fh.Div(
                             fh.Label('E-mail', cls='block text-gray-50 mb-2'),
-                            fh.Input(type='email', cls='w-full px-4 py-3 rounded-lg border border-gray-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500')
+                            fh.Input(type='email', name="email", maxlength="120", required=True, cls='w-full px-4 py-3 rounded-lg border border-gray-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500', placeholder='E-mail válido')
                         ),
                         fh.Div(
                             fh.Label('Mensagem', cls='block text-gray-50 mb-2'),
-                            fh.Textarea(rows='4', cls='w-full px-4 py-3 rounded-lg border border-gray-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500')
+                            fh.Textarea(rows='4', name="text", maxlength="300", required=True, cls='w-full px-4 py-3 rounded-lg border border-gray-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500', placeholder='Escreva sua mensagem...')
                         ),
-                        fh.Button('Enviar Mensagem', cls='w-full border-0 bg-green-600 text-white py-3 rounded-lg font-semibold hover:bg-green-700'),
-                        cls='space-y-6'
+                        fh.Button('Enviar Mensagem', type="submit", cls='w-full border-0 bg-green-600 text-white py-3 rounded-lg font-semibold hover:bg-green-700'),
+                        fh.Div(id='result'),
+                        cls='space-y-6',
+                        method="post",
+                        hx_post="/submit-message",
+                        # hx_on__after_request="this.reset()", # Reset form after submit                        
+                        hx_target="#result",
+                        hx_swap="outerHTML" # replace the entire content of the target element
                     ),
                     cls='max-w-lg mx-auto rounded-md p-8 bg-slate-600'
-                ),
+                ),                
                 cls='container mx-auto px-6'
             ),
             id='contato',
@@ -174,6 +285,26 @@ def home():
         ),
         cls='bg-gray-50'
     )
+
+
+@rt("/submit-message", methods=["POST"])
+async def post(message:Message):
+    errors = validate_form(message)
+    if errors:
+        return fh.Div(fh.H3("Erros encontrados:", cls="text-red-700 font-bold text-lg px-8"),
+                      fh.Ul(*[fh.Li(error, cls="text-red-700") for error in errors], cls="px-8"), 
+                      id="result", 
+                      cls="bg-red-100 border border-red-400 text-red-700 p-4 rounded relative")
+        
+    # Insert into database
+    if await add_message(message) and send_email(message):
+        return fh.Div("Mensagem enviada com sucesso!", 
+                      id="result",
+                      cls="bg-green-100 border border-green-400 text-green-700 p-4 rounded relative font-bold")
+    else:
+        return fh.Div("Erro ao enviar mensagem. Tente novamente mais tarde.",                      
+                      id="result", 
+                      cls="bg-red-100 border border-red-400 text-red-700 p-4 rounded relative font-bold")
 
 
 fh.serve()

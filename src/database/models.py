@@ -14,19 +14,20 @@ class Cliente():
     
     id: Mapped[int]               = mapped_column(init=False, autoincrement=True, primary_key=True)
     name: Mapped[str]             = mapped_column(nullable=False)
-    email: Mapped[str]            = mapped_column(nullable=True, unique=True)
-    document: Mapped[str]         = mapped_column(nullable=False, unique=True)
-    gender_id:  Mapped[int]       = mapped_column(ForeignKey('tab_genders.id'), nullable=False)
-    birthdate: Mapped[datetime]   = mapped_column(nullable=True)
+    email: Mapped[str]            = mapped_column(nullable=True)
+    message: Mapped[str]          = mapped_column(nullable=True)
+    document: Mapped[str]         = mapped_column(nullable=True, unique=True, init=False)
+    gender_id:  Mapped[int]       = mapped_column(ForeignKey('tab_genders.id'), nullable=True)
+    birthdate: Mapped[datetime]   = mapped_column(nullable=True, init=False)
     phone: Mapped[str]            = mapped_column(nullable=True)
-    instagram: Mapped[str]        = mapped_column(nullable=True)   
-    address_code:       Mapped[str]         = mapped_column(nullable=True) # CEP
-    address_street:     Mapped[str]         = mapped_column(nullable=True)
-    address_number:     Mapped[str]         = mapped_column(nullable=True)
-    address_complement: Mapped[str]         = mapped_column(nullable=True)
-    address_district:   Mapped[str]         = mapped_column(nullable=True) # Bairro
-    city_id:            Mapped[int]         = mapped_column(ForeignKey('tab_cities.id'), nullable=True)
-    state_id:           Mapped[int]         = mapped_column(ForeignKey('tab_states.id'), nullable=True) 
+    instagram: Mapped[str]        = mapped_column(nullable=True, init=False)   
+    address_code:       Mapped[str]         = mapped_column(nullable=True, init=False) # CEP
+    address_street:     Mapped[str]         = mapped_column(nullable=True, init=False)
+    address_number:     Mapped[str]         = mapped_column(nullable=True, init=False)
+    address_complement: Mapped[str]         = mapped_column(nullable=True, init=False)
+    address_district:   Mapped[str]         = mapped_column(nullable=True, init=False) # Bairro
+    city_id:            Mapped[int]         = mapped_column(ForeignKey('tab_cities.id'), nullable=True, init=False)
+    state_id:           Mapped[int]         = mapped_column(ForeignKey('tab_states.id'), nullable=True, init=False) 
     created_at: Mapped[datetime]  = mapped_column(init=False, server_default=func.datetime(func.now(), 'localtime'))
     
     gender: Mapped["PessoaGenero"] = relationship(back_populates='clients', init=False)

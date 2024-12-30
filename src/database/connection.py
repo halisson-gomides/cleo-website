@@ -1,6 +1,7 @@
 import asyncio
 from typing import AsyncGenerator
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker, AsyncConnection
+from contextlib import asynccontextmanager
 from dotenv import load_dotenv, find_dotenv
 import logging
 # from os import getenv
@@ -18,7 +19,7 @@ engine = None
 
 # @retry(stop=stop_after_attempt(5), wait=wait_fixed(3))
 async def get_engine():
-    """Cria engine com tentativas de reconexão"""
+    """Cria engine"""
    
     # logger.info(f"Tentando conectar ao banco de dados: {db_params.hostname}")
     
@@ -68,9 +69,16 @@ async def initial_inserts(bind: AsyncConnection):
                     await bind.execute(text(stmt))
 
         # PessoaGenero        
-        gen_masc = {'description':'Masculino'}
-        gen_fem  = {'description':'Feminino'}
-        await bind.execute(PessoaGenero.insert(), [gen_masc, gen_fem])
+        gen_masc = PessoaGenero(description='Masculino')
+        gen_fem = PessoaGenero(description='Feminino')
+        async_session = async_sessionmaker(
+            bind=bind, class_=AsyncSession, expire_on_commit=False
+        )   
+        async with async_session() as session:
+            # Adicionar objetos
+            session.add_all([gen_masc, gen_fem])
+            # Commit da transação
+            await session.commit()
         
 
     except SQLAlchemyError as e:        
@@ -104,6 +112,7 @@ async def init_db():
         raise
 
 
+@asynccontextmanager
 async def get_session() -> AsyncGenerator[AsyncSession, None]:
     if engine is None:
         raise Exception("Database não foi inicializado. Chame init_db() primeiro.")
