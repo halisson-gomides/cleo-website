@@ -18,7 +18,7 @@ app, rt = fh.fast_app(
     hdrs=(
         # Add Tailwind CSS
         fh.Script(src="https://cdn.tailwindcss.com"),
-        fh.Link(rel="icon", type="assets/x-icon", href="img/favicon.png"),
+        fh.Link(rel="icon", type="assets/x-icon", href="img/favicon.png"),                
     ),        
     live=True)
 
@@ -79,11 +79,11 @@ def send_email(message: Message):
     receiver_email = os.getenv("MAIL_TO")
 
     mail_message = MIMEMultipart("alternative")
-    mail_message["Subject"] = "Nova mensagem - CAT Serviços de Energia Solar"
+    mail_message["Subject"] = f"Nova mensagem - {page_title}"
     mail_message["From"] = sender_email
     mail_message["To"] = receiver_email
 
-    html_template = f"""\
+    mail_body = f"""\
     <html>
     <body>
         <div style="font-family: Arial, sans-serif; padding: 2rem; border-radius: 0.375rem; background-color: #374151; max-width: 32rem; margin: 0 auto;">
@@ -108,16 +108,23 @@ def send_email(message: Message):
     </body>
     </html>
     """
-    part = MIMEText(html_template, "html")
+    part = MIMEText(mail_body, "html")
     mail_message.attach(part)
 
     with smtplib.SMTP(smtp_server, smtp_port) as server:
-        server.set_debuglevel(1)
-        server.esmtp_features['auth'] = 'LOGIN DIGEST-MD5 PLAIN'
-        server.login(smtp_user, smtp_pass)
-        server.sendmail(
-            sender_email, receiver_email, mail_message.as_string()
-        )
+        try:
+            # server.set_debuglevel(1)
+            server.ehlo()
+            server.starttls()
+            server.ehlo()
+            # server.esmtp_features['auth'] = 'LOGIN DIGEST-MD5 PLAIN'            
+            server.login(smtp_user, smtp_pass)
+            server.sendmail(
+                sender_email, receiver_email, mail_message.as_string()
+            )
+        except Exception as e:
+            print(f"Erro ao enviar e-mail: {e}")
+            return False
     return True
 
 
@@ -245,14 +252,17 @@ def home():
                             fh.Label('Mensagem', cls='block text-gray-50 mb-2'),
                             fh.Textarea(rows='4', name="text", maxlength="300", required=True, cls='w-full px-4 py-3 rounded-lg border border-gray-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500', placeholder='Escreva sua mensagem...')
                         ),
-                        fh.Button('Enviar Mensagem', type="submit", cls='w-full border-0 bg-green-600 text-white py-3 rounded-lg font-semibold hover:bg-green-700'),
-                        fh.Div(id='result'),
+                        fh.Button('Enviar Mensagem', id="submit_button", type="submit", cls='w-full border-0 bg-green-600 text-white py-3 rounded-lg font-semibold hover:bg-green-700'),
+                        fh.Div('Enviando...', aria_busy="true", cls="blinking htmx-indicator text-white font-bold justify-self-center", id="indicador"),
+                        fh.Div(id='result', cls='hidden'),
                         cls='space-y-6',
                         method="post",
                         hx_post="/submit-message",
-                        # hx_on__after_request="this.reset()", # Reset form after submit                        
+                        hx_disabled_elt="#submit_button", # Disable button on submit
+                        hx_indicator="#indicador", # Show loading indicator                        
+                        hx_on__before_request="document.getElementById('result').style.visibility = 'hidden';", # Reset form after submit                        
                         hx_target="#result",
-                        hx_swap="outerHTML" # replace the entire content of the target element
+                        hx_swap="outerHTML", # replace the entire content of the target element                                
                     ),
                     cls='max-w-lg mx-auto rounded-md p-8 bg-slate-600'
                 ),                
@@ -292,19 +302,23 @@ async def post(message:Message):
     errors = validate_form(message)
     if errors:
         return fh.Div(fh.H3("Erros encontrados:", cls="text-red-700 font-bold text-lg px-8"),
-                      fh.Ul(*[fh.Li(error, cls="text-red-700") for error in errors], cls="px-8"), 
+                      fh.Ul(*[fh.Li(error, cls="text-red-700") for error in errors], cls="px-8"),                       
                       id="result", 
-                      cls="bg-red-100 border border-red-400 text-red-700 p-4 rounded relative")
+                      hx_disabled_elt="this",
+                      cls="bg-red-100 border border-red-400 text-red-700 p-4 rounded relative w-full")
         
     # Insert into database
-    if await add_message(message) and send_email(message):
+    if send_email(message):
+        await add_message(message)
         return fh.Div("Mensagem enviada com sucesso!", 
                       id="result",
-                      cls="bg-green-100 border border-green-400 text-green-700 p-4 rounded relative font-bold")
+                      hx_disabled_elt="this",
+                      cls="bg-green-100 border border-green-400 text-green-700 p-4 rounded relative font-bold text-center w-full")
     else:
         return fh.Div("Erro ao enviar mensagem. Tente novamente mais tarde.",                      
                       id="result", 
-                      cls="bg-red-100 border border-red-400 text-red-700 p-4 rounded relative font-bold")
+                      hx_disabled_elt="this",
+                      cls="bg-red-100 border border-red-400 text-red-700 p-4 rounded relative font-bold text-center w-full")
 
 
 fh.serve()

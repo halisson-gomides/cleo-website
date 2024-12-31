@@ -1,3 +1,5 @@
 # Website
-Website para meu amigo Cleo.
-Desenvolvido em FastHTML.
+Website developed using [FastHTML](https://www.fastht.ml/)
+Functionalities included:
+- Send Email
+- Database operations
