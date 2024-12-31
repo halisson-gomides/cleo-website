@@ -1,5 +1,5 @@
 from fasthtml import common as fh
-from database.connection import init_db, get_session
+from src.database.connection import init_db, get_session
 from dataclasses import dataclass
 import smtplib
 from email.mime.text import MIMEText
@@ -46,7 +46,7 @@ def validate_form(message: Message):
 
 
 async def add_message(message: Message):
-    from database.models import Cliente  
+    from src.database.models import Cliente  
     from sqlalchemy.exc import SQLAlchemyError
 
     # Usar async with para gerenciar o contexto da sessão

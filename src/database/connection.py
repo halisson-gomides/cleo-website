@@ -7,7 +7,7 @@ import logging
 # from os import getenv
 # from urllib.parse import urlparse
 # from tenacity import retry, stop_after_attempt, wait_fixed
-from database.models import table_registry
+from src.database.models import table_registry
 
 load_dotenv(find_dotenv())
 
@@ -45,7 +45,7 @@ async def initial_inserts(bind: AsyncConnection):
     from os import path   
     import re
     from sqlalchemy import text
-    from database.models import PessoaGenero
+    from src.database.models import PessoaGenero
     from sqlalchemy.exc import SQLAlchemyError
 
     try:        
@@ -91,7 +91,7 @@ async def initial_inserts(bind: AsyncConnection):
 
 async def init_db():
     from sqlalchemy import select
-    from database.models import PessoaGenero
+    from src.database.models import PessoaGenero
 
     global engine
     
