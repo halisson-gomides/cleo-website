@@ -4,3 +4,4 @@ asyncpg==0.30.0
 tenacity==9.0.0
 python-fasthtml==0.10.1
 aiosqlite==0.20.0
+sqlite-minutils==4.0.3
